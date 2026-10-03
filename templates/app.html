@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Support</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#11161f; --panel2:#161d29; --border:#232b3a;
+    --accent:#6c5ce7; --accent2:#00d9c0; --text:#e8ecf3; --muted:#8a94a6;
+    --outer:#05070b; --danger:#ff5c5c; --ok:#3cff9d;
+  }
+  :root:not([data-theme="dark"]).light-mode{
+    --bg:#f4f6fb; --panel:#ffffff; --panel2:#eef1f8; --border:#dde2ee;
+    --text:#141824; --muted:#6b7280; --outer:#e4e8f2;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%; margin:0; overflow:hidden; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--outer); color:var(--text);}
+
+  #shell{height:100dvh; width:100%; display:flex; align-items:center; justify-content:center; padding:0;
+    background:
+      radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 45%),
+      radial-gradient(circle at 80% 80%, color-mix(in srgb, var(--accent2) 10%, transparent), transparent 45%),
+      var(--outer);}
+  #app{height:100%; width:100%; display:flex; flex-direction:column;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); background:var(--panel);}
+  @media (min-width:700px){
+    #shell{padding:32px;}
+    #app{height:min(800px, 100%); max-width:460px; border-radius:22px; overflow:hidden;
+      box-shadow:0 30px 80px rgba(0,0,0,0.45), 0 0 0 1px var(--border);}
+  }
+  body.standalone-wide #app{ max-width:720px; }
+  body.standalone-wide.tab-dashboard #app, body.standalone-wide.tab-settings #app{ max-width:640px; }
+
+  /* ---------- Header (shared across all tabs) ---------- */
+  #musfira-header{background:linear-gradient(120deg,var(--accent),var(--accent2)); padding:12px 16px;
+    display:flex; align-items:center; justify-content:space-between; flex-shrink:0; position:relative;}
+  #musfira-header .left{display:flex;align-items:center;gap:10px; min-width:0; flex:1;}
+  #musfira-header .avatar{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.22);
+    display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;}
+  #musfira-header .title{font-weight:700;font-size:14.5px;color:#fff; overflow-wrap:anywhere;}
+  #musfira-header .status{font-size:11px;color:rgba(255,255,255,0.92);display:flex;align-items:center;gap:5px;}
+  #musfira-header .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  #musfira-header .dot.online{background:#3cff9d;box-shadow:0 0 6px #3cff9d;}
+  #musfira-header .dot.away{background:#ffcc66;box-shadow:0 0 6px #ffcc66;}
+  #musfira-header .actions{display:flex; gap:6px; flex-shrink:0; margin-left:8px;}
+  #musfira-header .icon-btn{background:rgba(255,255,255,0.18);border:none;color:#fff;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:13px;}
+  #musfira-header .icon-btn:hover{background:rgba(255,255,255,0.3);}
+  .dropdown{position:absolute; top:52px; right:8px; background:var(--panel2); border:1px solid var(--border);
+    border-radius:10px; overflow:hidden; display:none; z-index:20; min-width:180px; box-shadow:0 10px 30px rgba(0,0,0,0.35);}
+  .dropdown button{display:block; width:100%; text-align:left; padding:10px 14px; background:none; border:none; color:var(--text); font-size:12.5px; cursor:pointer;}
+  .dropdown button:hover{background:var(--border);}
+
+  /* ---------- Tab strip (hidden entirely when embedded on someone else's site) ---------- */
+  #tab-strip{display:none; flex-shrink:0; background:var(--panel); border-bottom:1px solid var(--border);}
+  #tab-strip.revealed{display:flex;}
+  #tab-strip button{flex:1; padding:10px 6px; background:none; border:none; color:var(--muted); font-size:12px; cursor:pointer; border-bottom:2px solid transparent; display:flex; align-items:center; justify-content:center; gap:5px;}
+  #tab-strip button.active{color:var(--accent2); border-bottom-color:var(--accent2);}
+
+  .panel{flex:1; min-height:0; display:none; flex-direction:column;}
+  .panel.active{display:flex;}
+
+  /* ---------- Chat panel ---------- */
+  #search-bar{display:none; padding:8px 12px; flex-shrink:0; background:var(--panel); border-bottom:1px solid var(--border);}
+  #search-bar input{width:100%; background:var(--panel2); border:1px solid var(--border); border-radius:20px; padding:8px 14px; color:var(--text); font-size:13px; outline:none;}
+  #config-banner{background:#3a2a00; color:#ffcc66; font-size:11.5px; padding:6px 12px; text-align:center; display:none; flex-shrink:0;}
+  #musfira-messages{flex:1; min-height:0; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:2px; background:var(--bg); scrollbar-width:none; -ms-overflow-style:none;}
+  #musfira-messages::-webkit-scrollbar{display:none;}
+  .msg-row{display:flex; align-items:flex-end; gap:8px; margin-bottom:10px; max-width:88%; animation:rise 0.25s ease-out;}
+  @keyframes rise{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+  .msg-row.user{align-self:flex-end; flex-direction:row-reverse;}
+  .msg-row.bot{align-self:flex-start;}
+  .msg-avatar{width:22px;height:22px;border-radius:50%;background:linear-gradient(120deg,var(--accent),var(--accent2));
+    flex-shrink:0; display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;}
+  .msg-col{display:flex; flex-direction:column; min-width:0;}
+  .msg-row.user .msg-col{align-items:flex-end;}
+  .msg{padding:10px 14px; border-radius:16px; font-size:13.5px; line-height:1.45; white-space:pre-wrap; word-wrap:break-word;}
+  .msg-row.bot .msg{background:var(--panel2); border:1px solid var(--border); border-bottom-left-radius:4px;}
+  .msg-row.user .msg{background:linear-gradient(120deg,var(--accent),color-mix(in srgb, var(--accent) 70%, var(--accent2))); color:#fff; border-bottom-right-radius:4px;}
+  .msg-meta{font-size:10px; color:var(--muted); margin-top:3px; padding:0 2px;}
+  .msg.system{align-self:center; font-size:10.5px; color:var(--muted); background:none; text-align:center;}
+  mark{background:#ffcc66; color:#000; border-radius:3px;}
+  .feedback-row{display:flex; gap:4px; margin-top:3px; padding:0 2px;}
+  .feedback-row button{background:none;border:none;cursor:pointer;font-size:11px;opacity:0.5;color:var(--muted);padding:1px 3px;}
+  .feedback-row button:hover, .feedback-row button.active{opacity:1;color:var(--accent2);}
+  .quick-replies{display:flex; flex-wrap:wrap; gap:6px; align-self:flex-start; max-width:96%; margin:0 0 12px 30px;}
+  .quick-replies button{background:var(--panel2); border:1px solid var(--accent); color:var(--accent2); padding:6px 12px; border-radius:20px; font-size:11.5px; cursor:pointer;}
+  .quick-replies button:hover{background:var(--accent);color:#fff;}
+  #typing{display:none; align-self:flex-start; padding:10px 14px; background:var(--panel2); border:1px solid var(--border); border-radius:16px; margin:0 0 10px 30px;}
+  #typing span{width:6px;height:6px;background:var(--muted);border-radius:50%;display:inline-block;margin-right:3px;animation:blink 1.2s infinite;}
+  #typing span:nth-child(2){animation-delay:0.2s;} #typing span:nth-child(3){animation-delay:0.4s;}
+  @keyframes blink{0%,80%,100%{opacity:0.3;}40%{opacity:1;}}
+  #musfira-footer{border-top:1px solid var(--border); padding:10px; display:flex; flex-direction:column; gap:4px; background:var(--panel); flex-shrink:0;}
+  #footer-row{display:flex; gap:8px; align-items:center;}
+  #char-count{font-size:10px; color:var(--muted); text-align:right; padding-right:6px;}
+  #musfira-input{flex:1; background:var(--panel2); border:1px solid var(--border); border-radius:24px; padding:10px 16px; color:var(--text); font-size:13.5px; outline:none; min-width:0;}
+  #musfira-input:focus{border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);}
+  #musfira-send, #musfira-human{background:var(--accent); border:none; color:#fff; width:40px;height:40px; border-radius:50%; cursor:pointer; display:flex;align-items:center;justify-content:center; flex-shrink:0;}
+  #musfira-send:disabled{opacity:0.5; cursor:not-allowed;}
+  #musfira-human{background:var(--panel2);border:1px solid var(--border);color:var(--accent2);}
+  .powered-by{text-align:center; font-size:10px; padding-top:4px;}
+  .powered-by a{color:var(--muted); text-decoration:none;}
+  .powered-by a:hover{color:var(--accent2);}
+  .rating-stars{display:flex; gap:4px; align-self:center; margin:6px 0;}
+  .rating-stars button{background:none;border:none;font-size:19px;cursor:pointer;opacity:0.4;}
+  .rating-stars button.active, .rating-stars button:hover{opacity:1;}
+
+  /* ---------- Shared form styles (Settings + Dashboard unlock) ---------- */
+  .scroll-panel{flex:1; min-height:0; overflow-y:auto; padding:18px 18px 28px;}
+  .section-title{font-size:14px; font-weight:700; margin:0 0 4px;}
+  .section-sub{font-size:11.5px; color:var(--muted); margin-bottom:14px; line-height:1.5;}
+  label{display:block; font-size:12px; font-weight:600; margin:12px 0 5px;}
+  .field-hint{font-size:10.5px; color:var(--muted); margin-top:3px;}
+  .field-hint a{color:var(--accent2);}
+  input[type="text"], input[type="password"], textarea, select{
+    width:100%; padding:9px 11px; border-radius:8px; border:1px solid var(--border);
+    background:var(--panel2); color:var(--text); font-size:13px; font-family:inherit;}
+  input:focus, textarea:focus, select:focus{outline:none; border-color:var(--accent);}
+  textarea{resize:vertical; min-height:44px;}
+  input[type="color"]{padding:3px; height:36px; cursor:pointer; width:100%; border-radius:8px; border:1px solid var(--border); background:var(--panel2);}
+  .field-row{display:flex; gap:8px;}
+  .field-row input{flex:1; min-width:0;}
+  .field-row button{white-space:nowrap; padding:0 12px; border:1px solid var(--border); background:var(--panel2); color:var(--accent2); border-radius:8px; cursor:pointer; font-size:11px;}
+  .btn-primary{width:100%; padding:11px; background:var(--accent); border:none; border-radius:10px; color:#fff; font-weight:700; font-size:13.5px; cursor:pointer; margin-top:6px;}
+  .btn-primary:disabled{opacity:0.5; cursor:not-allowed;}
+  .inline-status{font-size:11.5px; margin-top:8px; padding:8px 10px; border-radius:8px; display:none; white-space:pre-wrap; word-break:break-word;}
+  .inline-status.ok{display:block; background:#0a3a1e; color:var(--ok);}
+  .inline-status.fail{display:block; background:#3a0a0a; color:#ff8080;}
+  .ephemeral-badge{display:inline-block; font-size:10px; background:#3a2a00; color:#ffcc66; padding:2px 8px; border-radius:10px; margin-left:6px;}
+  .divider{height:1px; background:var(--border); margin:20px 0;}
+  #embed-box{background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:12px; font-family:monospace; font-size:11px; word-break:break-all; margin-top:8px;}
+  #copy-embed-btn{margin-top:8px; width:100%; padding:8px; background:var(--panel2); border:1px solid var(--border); color:var(--accent2); border-radius:8px; cursor:pointer; font-size:11.5px;}
+  .provider-block{display:none;}
+  .provider-block.active{display:block;}
+
+  /* ---------- Dashboard ---------- */
+  #dashboard-lock{max-width:280px; margin:60px auto; text-align:center;}
+  #dashboard-lock input{margin-bottom:10px;}
+  .stat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:8px; margin-bottom:18px;}
+  .stat-card{background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:10px;}
+  .stat-card .label{font-size:10px; color:var(--muted); margin-bottom:3px;}
+  .stat-card .value{font-size:17px; font-weight:700; color:var(--accent2);}
+  table{width:100%; border-collapse:collapse; font-size:11.5px; margin-bottom:8px;}
+  th,td{padding:7px 8px; text-align:left; border-bottom:1px solid var(--border); word-break:break-word;}
+  th{color:var(--muted); font-weight:600; font-size:10.5px;}
+  .status-badge{padding:2px 7px; border-radius:10px; font-size:10px;}
+  .status-badge.open{background:#3a2a00; color:#ffcc66;}
+  .status-badge.resolved{background:#0a3a1e; color:var(--ok);}
+  .mini-btn{background:var(--accent2); border:none; color:#0a0e14; padding:4px 8px; border-radius:6px; font-size:10px; cursor:pointer; font-weight:600;}
+  .mini-btn.danger{background:var(--danger); color:#fff;}
+  .table-wrap{overflow-x:auto; margin-bottom:16px;}
+  .faq-form{background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:10px; margin-bottom:12px; display:flex; flex-direction:column; gap:6px;}
+  .faq-form input, .faq-form textarea{font-size:12px;}
+  .faq-form button{align-self:flex-start; padding:7px 14px; background:var(--accent); border:none; border-radius:8px; color:#fff; font-size:11.5px; font-weight:600; cursor:pointer;}
+
+  /* ---------- Features modal ---------- */
+  #features-modal, #testkey-modal{display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:50; align-items:center; justify-content:center; padding:16px;}
+  #features-modal .box, #testkey-modal .box{background:var(--panel); border:1px solid var(--border); border-radius:16px; max-width:440px; width:100%; max-height:85vh; overflow-y:auto; padding:20px;}
+  #features-modal h2{font-size:16px; margin:0 0 4px;}
+  #features-modal .sub{font-size:11.5px; color:var(--muted); margin-bottom:12px;}
+  #features-modal ul{margin:0 0 14px; padding-left:18px; font-size:12.5px; line-height:1.7;}
+  #features-modal .cat{font-size:12.5px; font-weight:700; color:var(--accent2); margin:10px 0 4px;}
+  #features-modal .close-btn{width:100%; padding:10px; background:var(--accent); border:none; border-radius:10px; color:#fff; font-weight:600; cursor:pointer; margin-top:6px;}
+
+  @media (max-width:360px){ .msg{font-size:12.5px; padding:8px 11px;} #musfira-header .title{font-size:13px;} }
+</style>
+</head>
+<body>
+
+<div id="shell">
+<div id="app">
+  <div id="musfira-header">
+    <div class="left">
+      <div class="avatar" id="header-avatar">M</div>
+      <div>
+        <div class="title" id="header-title">Support</div>
+        <div class="status"><span class="dot" id="status-dot"></span><span id="status-text">Checking...</span></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="icon-btn" id="search-toggle" title="Search chat">🔎</button>
+      <button class="icon-btn" id="theme-toggle" title="Toggle theme">🌙</button>
+      <button class="icon-btn" id="menu-toggle" title="Menu">⋮</button>
+      <button class="icon-btn" id="admin-gear" title="Admin" style="display:none;">⚙</button>
+      <button class="icon-btn" id="embed-close" title="Close chat" style="display:none;">✕</button>
+    </div>
+    <div class="dropdown" id="menu-dropdown">
+      <button id="menu-features">📋 Features dashboard</button>
+      <button id="menu-transcript">⬇ Download transcript</button>
+      <button id="menu-sound">🔔 Toggle sound</button>
+      <button id="menu-restart">↺ Restart conversation</button>
+    </div>
+  </div>
+
+  <div id="tab-strip">
+    <button class="tab-btn active" data-tab="chat">💬 Chat</button>
+    <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
+    <button class="tab-btn" data-tab="dashboard">📊 Dashboard</button>
+  </div>
+
+  <!-- ============================= CHAT PANEL ============================= -->
+  <div class="panel active" id="panel-chat">
+    <div id="search-bar"><input id="search-input" type="text" placeholder="Search this conversation..."></div>
+    <div id="config-banner">⚠ Having trouble reaching our assistant right now — please try "Talk to a human" below.</div>
+    <div id="musfira-messages" aria-live="polite"></div>
+    <div id="musfira-footer">
+      <div id="char-count">0 / 500</div>
+      <div id="footer-row">
+        <button id="musfira-human" title="Talk to a human">👤</button>
+        <input id="musfira-input" type="text" placeholder="Type your message..." autocomplete="off" maxlength="500">
+        <button id="musfira-send" title="Send">➤</button>
+      </div>
+      <div class="powered-by"><a href="https://musfiraai.com" target="_blank" rel="noopener">Powered by MUSFIRA AI</a></div>
+    </div>
+  </div>
+
+  <!-- ============================= SETTINGS PANEL ============================= -->
+  <div class="panel" id="panel-settings">
+    <div class="scroll-panel">
+      <div class="section-title">AI Key <span class="ephemeral-badge">not saved — cleared on refresh</span></div>
+      <div class="section-sub">Paste a key to make the chat live for this browser tab only. It is sent with each message and forgotten immediately after — never written to any file, cookie, or browser storage. Refreshing this page clears it and you'll paste it again.</div>
+
+      <label>AI Provider</label>
+      <select id="provider">
+        <option value="groq">Groq (free, fast — llama models)</option>
+        <option value="gemini">Google Gemini (free tier)</option>
+      </select>
+
+      <div class="provider-block" id="block-groq">
+        <label>Groq API Key</label>
+        <input id="groq_key" type="password" placeholder="gsk_... (never saved)">
+        <div class="field-hint">Free key: <a href="https://console.groq.com" target="_blank">console.groq.com</a> → API Keys → Create API Key.</div>
+      </div>
+      <div class="provider-block" id="block-gemini">
+        <label>Gemini API Key</label>
+        <input id="gemini_key" type="password" placeholder="AIza... (never saved)">
+        <div class="field-hint">Free key: <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>.</div>
+      </div>
+      <button type="button" class="btn-primary" id="test-key-btn" style="background:var(--panel2); color:var(--accent2); border:1px solid var(--border);">🔍 Test this key right now</button>
+      <div class="inline-status" id="test-result"></div>
+      <div class="field-hint" id="key-live-status" style="margin-top:8px;"></div>
+
+      <div class="divider"></div>
+
+      <div class="section-title">Business Settings <span class="ephemeral-badge" style="background:#0a3a1e;color:var(--ok);">saved</span></div>
+      <div class="section-sub">These aren't secrets, so they're remembered normally — no need to retype your business name every time.</div>
+
+      <label>Business Name</label>
+      <input id="business_name" type="text" placeholder="e.g. Your Agency Name">
+      <label>WhatsApp number (for human handoff)</label>
+      <input id="whatsapp" type="text" placeholder="e.g. https://wa.me/923001234567">
+      <label>Support Email</label>
+      <input id="email" type="text" placeholder="e.g. support@yourbusiness.com">
+      <label>Chat accent color</label>
+      <input id="accent_color" type="color" value="#6c5ce7">
+      <label>Welcome message</label>
+      <textarea id="welcome_message" placeholder="How can I help today?"></textarea>
+      <label>Dashboard Password</label>
+      <div class="field-row">
+        <input id="admin_key" type="text" placeholder="Password to open the Dashboard tab">
+        <button type="button" id="gen-btn">Generate</button>
+      </div>
+      <button class="btn-primary" id="save-settings-btn">Save business settings</button>
+      <div class="inline-status" id="settings-status"></div>
+
+      <div class="divider"></div>
+      <div class="section-title">Add this to any website</div>
+      <div class="section-sub">Paste this one line anywhere in a site's HTML — a chat icon appears bottom-right automatically.</div>
+      <div id="embed-box"></div>
+      <button id="copy-embed-btn">📋 Copy embed code</button>
+    </div>
+  </div>
+
+  <!-- ============================= DASHBOARD PANEL ============================= -->
+  <div class="panel" id="panel-dashboard">
+    <div class="scroll-panel">
+      <div id="dashboard-lock">
+        <div class="section-title">🔒 Dashboard</div>
+        <div class="section-sub">Enter the password set in Settings. Not remembered after a refresh.</div>
+        <input id="dash-key-input" type="password" placeholder="Dashboard password">
+        <button class="btn-primary" id="dash-unlock-btn">Unlock</button>
+        <div class="inline-status" id="dash-error"></div>
+      </div>
+      <div id="dashboard-content" style="display:none;">
+        <div class="stat-grid" id="stats-grid"></div>
+
+        <div class="section-title" style="font-size:12.5px;">Open Tickets</div>
+        <div class="table-wrap">
+          <table id="tickets-table"><thead><tr><th>Ticket</th><th>Reason</th><th>Message</th><th>Status</th><th></th></tr></thead><tbody id="tickets-body"></tbody></table>
+        </div>
+
+        <div class="section-title" style="font-size:12.5px;">Your FAQ Answers <span style="font-weight:400; color:var(--muted); font-size:10.5px;">— instant, no AI call used</span></div>
+        <div class="faq-form">
+          <input id="new-faq-keywords" placeholder="Trigger words, comma-separated">
+          <textarea id="new-faq-answer" placeholder="Answer to show"></textarea>
+          <button id="add-faq-btn">+ Add FAQ</button>
+        </div>
+        <div class="table-wrap">
+          <table id="faqs-table"><thead><tr><th>Triggers</th><th>Answer</th><th></th></tr></thead><tbody id="faqs-body"></tbody></table>
+        </div>
+
+        <div class="section-title" style="font-size:12.5px;">Recent Errors</div>
+        <div class="table-wrap">
+          <table id="errors-table"><thead><tr><th>When</th><th>Where</th><th>Details</th></tr></thead><tbody id="errors-body"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============================= Features modal ============================= -->
+<div id="features-modal">
+  <div class="box">
+    <h2>Feature Dashboard</h2>
+    <div class="sub">Backend-powered — every item below runs through the real Python server.</div>
+    <div class="cat">💬 Conversation intelligence</div>
+    <ul>
+      <li>Groq or Gemini responses, called server-side per message — the key itself is never stored server-side</li>
+      <li>Automatic fallback + live model auto-discovery if a model isn't available on your account</li>
+      <li>Instant local FAQ answers, fully editable from the Dashboard — no code needed</li>
+      <li>Per-IP rate limiting to protect your free quota from abuse</li>
+    </ul>
+    <div class="cat">🤝 Trust &amp; human handoff</div>
+    <ul>
+      <li>Honest business-hours based Online/Away status</li>
+      <li>One-click WhatsApp / Email human handoff with a real ticket ID</li>
+      <li>Post-chat 5-star rating, per-message 👍/👎 feedback</li>
+      <li>Explicit "I'm an AI" honesty rule</li>
+    </ul>
+    <div class="cat">🔐 Privacy</div>
+    <ul>
+      <li>AI provider keys are never written to disk — only a plain variable in your open tab, gone on refresh</li>
+      <li>Only business display settings (name, contact info, colors) are remembered — never a credential</li>
+    </ul>
+    <div class="cat">🎨 UX</div>
+    <ul>
+      <li>Everything — chat, settings, dashboard — lives on this one page, no separate windows</li>
+      <li>Centered premium widget on desktop, full-screen on mobile, one-line embeddable on any site</li>
+    </ul>
+    <button class="close-btn" id="close-features">Close</button>
+  </div>
+</div>
+
+<script>
+/* ==========================================================================
+   Shared state
+   ========================================================================== */
+const isEmbedded = window.self !== window.top;
+
+const SESSION_KEY = "musfira_session_id_v1";
+const NAME_KEY = "musfira_user_name_v1";
+const SOUND_KEY = "musfira_sound_v1";
+const THEME_KEY = "musfira_theme_v1";
+
+function getSessionId(){
+  let id = localStorage.getItem(SESSION_KEY);
+  if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()); localStorage.setItem(SESSION_KEY, id); }
+  return id;
+}
+const sessionId = getSessionId();
+let userName = localStorage.getItem(NAME_KEY) || null;
+let soundOn = localStorage.getItem(SOUND_KEY) !== "off";
+let awaitingName = !userName;
+
+// The ONLY place an AI key lives: a plain variable, this tab, this load.
+// Never localStorage/sessionStorage/cookie — a refresh wipes it by design.
+let ephemeralKey = { provider: "groq", key: "" };
+// Same idea for the dashboard password the visitor typed in — re-enter after refresh.
+let dashboardKey = "";
+
+let businessConfig = {
+  business_name: "MUSFIRA AI Support", whatsapp: "https://wa.me/920000000000",
+  email: "mailto:support@musfiraai.com", accent_color: "#6c5ce7",
+  welcome_message: "How can I help today?", provider: "groq"
+};
+
+/* ==========================================================================
+   Tabs — hidden by default for EVERY visitor, whether this is the embedded
+   widget on someone else's site, or someone just opening the link directly
+   to preview the chat. A plain visit should look like a finished product,
+   not an admin tool. The small ⚙ gear (never shown inside the embedded
+   widget) is the one deliberate way in for the actual owner — one click
+   reveals the Settings/Dashboard tabs, and that choice is remembered via
+   the URL hash for the rest of that browsing session (so refreshing while
+   you're working in Settings doesn't dump you back to plain chat).
+   ========================================================================== */
+const $tabStrip = document.getElementById("tab-strip");
+const $embedClose = document.getElementById("embed-close");
+const $adminGear = document.getElementById("admin-gear");
+const adminHashes = ["#settings", "#dashboard", "#admin"];
+let adminUIVisible = !isEmbedded && adminHashes.includes(location.hash);
+
+function revealAdminUI(openTab){
+  adminUIVisible = true;
+  $tabStrip.style.display = "flex";
+  document.body.classList.add("standalone-wide");
+  switchTab(openTab || "settings");
+  location.hash = "#" + (openTab || "settings");
+}
+
+if (isEmbedded) {
+  $embedClose.style.display = "";
+  $embedClose.addEventListener("click", () => window.parent.postMessage({ musfira: "close" }, "*"));
+} else {
+  $adminGear.style.display = "";
+  $adminGear.addEventListener("click", () => revealAdminUI("settings"));
+  document.querySelectorAll(".tab-btn").forEach(btn => btn.addEventListener("click", () => switchTab(btn.dataset.tab)));
+  if (adminUIVisible) revealAdminUI(location.hash.replace("#", ""));
+}
+
+function switchTab(name){
+  document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+  document.querySelectorAll(".panel").forEach(p => p.classList.toggle("active", p.id === "panel-" + name));
+  document.body.classList.remove("tab-dashboard", "tab-settings");
+  if (name !== "chat") document.body.classList.add("tab-" + name);
+}
+
+/* ==========================================================================
+   Business config (persisted, non-sensitive) — loaded once on page open
+   ========================================================================== */
+async function loadBusinessConfig(){
+  try {
+    const res = await fetch("/api/config");
+    const data = await res.json();
+    businessConfig = { ...businessConfig, ...data };
+    document.getElementById("header-title").textContent = businessConfig.business_name;
+    document.getElementById("header-avatar").textContent = (businessConfig.business_name || "M").trim().charAt(0).toUpperCase();
+    document.title = businessConfig.business_name;
+    if (businessConfig.accent_color) document.documentElement.style.setProperty("--accent", businessConfig.accent_color);
+    if (!isEmbedded) {
+      document.getElementById("business_name").value = (data.business_name && data.business_name !== "MUSFIRA AI Support") ? data.business_name : "";
+      document.getElementById("whatsapp").value = (data.whatsapp && !data.whatsapp.includes("920000000000")) ? data.whatsapp : "";
+      document.getElementById("email").value = (data.email && !data.email.includes("support@musfiraai.com")) ? data.email : "";
+      document.getElementById("accent_color").value = data.accent_color || "#6c5ce7";
+      document.getElementById("welcome_message").value = data.welcome_message || "How can I help today?";
+      document.getElementById("provider").value = data.provider || "groq";
+      ephemeralKey.provider = data.provider || "groq";
+      refreshProviderBlocks();
+      renderEmbedCode();
+    }
+  } catch(e){ /* keep defaults */ }
+}
+
+/* ==========================================================================
+   CHAT
+   ========================================================================== */
+const $messages = document.getElementById("musfira-messages");
+const $input = document.getElementById("musfira-input");
+const $send = document.getElementById("musfira-send");
+const $human = document.getElementById("musfira-human");
+const $configBanner = document.getElementById("config-banner");
+const $statusDot = document.getElementById("status-dot");
+const $statusText = document.getElementById("status-text");
+const $menuToggle = document.getElementById("menu-toggle");
+const $menuDropdown = document.getElementById("menu-dropdown");
+const $charCount = document.getElementById("char-count");
+const $searchToggle = document.getElementById("search-toggle");
+const $searchBar = document.getElementById("search-bar");
+const $searchInput = document.getElementById("search-input");
+const $themeToggle = document.getElementById("theme-toggle");
+const $featuresModal = document.getElementById("features-modal");
+const $typing = (()=>{const el=document.createElement("div");el.id="typing";el.innerHTML="<span></span><span></span><span></span>";return el;})();
+
+if (localStorage.getItem(THEME_KEY) === "light") { document.body.classList.add("light-mode"); $themeToggle.textContent = "☀️"; }
+
+function playSound(){
+  if (!soundOn) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator(); const gn = ctx.createGain();
+    o.frequency.value = 780; o.connect(gn); gn.connect(ctx.destination);
+    gn.gain.setValueAtTime(0.05, ctx.currentTime); o.start(); o.stop(ctx.currentTime + 0.08);
+  } catch(e){}
+}
+function updateStatus(){
+  const hour = new Date().getHours();
+  const online = hour >= 9 && hour < 23;
+  $statusDot.className = "dot " + (online ? "online" : "away");
+  $statusText.textContent = online ? "Online now" : "Away — we'll reply soon";
+}
+updateStatus(); setInterval(updateStatus, 5*60*1000);
+
+function avatarLetter(){ return (businessConfig.business_name || "M").trim().charAt(0).toUpperCase(); }
+
+function addMessage(role, text, opts={}){
+  const row = document.createElement("div"); row.className = "msg-row " + role;
+  if (role === "bot") { const av = document.createElement("div"); av.className = "msg-avatar"; av.textContent = avatarLetter(); row.appendChild(av); }
+  const col = document.createElement("div"); col.className = "msg-col";
+  const bubble = document.createElement("div"); bubble.className="msg"; bubble.textContent = text; col.appendChild(bubble);
+  const meta = document.createElement("div"); meta.className="msg-meta";
+  meta.textContent = new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) + (role==="user" ? " ✓✓" : "");
+  col.appendChild(meta);
+  if (role === "bot" && !opts.noFeedback) {
+    const fb = document.createElement("div"); fb.className = "feedback-row";
+    const up = document.createElement("button"); up.textContent="👍";
+    const down = document.createElement("button"); down.textContent="👎";
+    up.onclick = () => { up.classList.add("active"); down.classList.remove("active"); sendFeedback(text,"up"); };
+    down.onclick = () => { down.classList.add("active"); up.classList.remove("active"); sendFeedback(text,"down"); };
+    fb.appendChild(up); fb.appendChild(down); col.appendChild(fb);
+  }
+  row.appendChild(col);
+  $messages.appendChild(row); $messages.scrollTop = $messages.scrollHeight;
+}
+function addQuickReplies(options){
+  const wrap = document.createElement("div"); wrap.className="quick-replies";
+  options.forEach(opt => { const btn=document.createElement("button"); btn.textContent=opt;
+    btn.onclick=()=>{ $input.value=opt; sendMessage(); }; wrap.appendChild(btn); });
+  $messages.appendChild(wrap); $messages.scrollTop = $messages.scrollHeight;
+}
+function showTyping(show){
+  if (show){ $messages.appendChild($typing); $typing.style.display="block"; $messages.scrollTop=$messages.scrollHeight; }
+  else { $typing.style.display="none"; if ($typing.parentNode) $typing.parentNode.removeChild($typing); }
+}
+function suggestFollowUps(userText, botReply){
+  const lc = (userText+" "+botReply).toLowerCase();
+  if (lc.includes("price") || lc.includes("cost")) return ["Do you have a free trial?", "What's included?", "Talk to a human"];
+  if (lc.includes("booking") || lc.includes("appointment")) return ["Does it sync with my calendar?", "Can it send reminders?"];
+  if (lc.includes("calling") || lc.includes("call")) return ["Does it handle Urdu/English mix?", "Can it make outbound calls?"];
+  if (lc.includes("service") || lc.includes("offer")) return ["How fast is onboarding?", "Custom bot?", "Pricing?"];
+  return ["Talk to a human", "What else can you do?"];
+}
+function typingDelayFor(text){ return 350 + Math.min(text.length*15, 1500); }
+async function api(path, payload){
+  const res = await fetch(path, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) });
+  return res.json();
+}
+async function sendFeedback(text, verdict){ try { await api("/api/feedback", {session_id:sessionId, message_text:text, verdict}); } catch(e){} }
+async function sendRating(stars){ try { await api("/api/rating", {session_id:sessionId, stars}); } catch(e){} }
+
+async function sendMessage(){
+  const text = $input.value.trim();
+  if (!text) return;
+  $input.value = ""; $charCount.textContent = "0 / 500"; $send.disabled = true;
+
+  if (awaitingName) {
+    awaitingName = false;
+    const nameGuess = text.replace(/[^a-zA-Z\s]/g,"").trim().split(" ")[0];
+    if (nameGuess && nameGuess.length > 1) { userName = nameGuess; localStorage.setItem(NAME_KEY, userName); }
+    addMessage("user", text);
+    showTyping(true); await new Promise(r=>setTimeout(r,500)); showTyping(false);
+    addMessage("bot", "Nice to meet you" + (userName?", "+userName:"") + "! " + businessConfig.welcome_message, {noFeedback:true});
+    addQuickReplies(["What services do you offer?", "Pricing?", "Talk to a human"]);
+    playSound(); $send.disabled = false; return;
+  }
+
+  addMessage("user", text);
+  showTyping(true);
+  try {
+    const payload = { session_id: sessionId, message: text, name: userName };
+    if (ephemeralKey.key) { payload.test_provider = ephemeralKey.provider; payload.test_api_key = ephemeralKey.key; }
+    const data = await api("/api/chat", payload);
+    if (!data.reply) $configBanner.style.display = "block";
+    await new Promise(r=>setTimeout(r, typingDelayFor(data.reply || "")));
+    showTyping(false);
+    addMessage("bot", data.reply || "Sorry, no response from the server.");
+    addQuickReplies(suggestFollowUps(text, data.reply || ""));
+    playSound();
+  } catch (err) {
+    showTyping(false);
+    addMessage("bot", "Sorry, I can't reach the backend right now. Please try again or talk to a human.");
+  }
+  $send.disabled = false;
+}
+async function talkToHuman(){
+  let ticketId = "";
+  try { const r = await api("/api/handoff", {session_id: sessionId}); ticketId = r.ticket_id || ""; } catch(e){}
+  addMessage("system", "Connecting you to a human agent" + (ticketId ? " — reference " + ticketId : ""), {});
+  const wrap = document.createElement("div"); wrap.className="quick-replies"; wrap.style.alignSelf="center"; wrap.style.margin="0 0 12px";
+  const wa = document.createElement("button"); wa.textContent="💬 WhatsApp us"; wa.onclick=()=>window.open(businessConfig.whatsapp,"_blank");
+  const em = document.createElement("button"); em.textContent="✉️ Email us"; em.onclick=()=>window.open(businessConfig.email,"_blank");
+  wrap.appendChild(wa); wrap.appendChild(em); $messages.appendChild(wrap); $messages.scrollTop = $messages.scrollHeight;
+  askForRating();
+}
+function askForRating(){
+  const sys = document.createElement("div"); sys.className="msg system"; sys.textContent="Before you go — how was this chat?";
+  $messages.appendChild(sys);
+  const stars = document.createElement("div"); stars.className="rating-stars";
+  for (let i=1;i<=5;i++){ const b=document.createElement("button"); b.textContent="★";
+    b.onclick=()=>{ [...stars.children].forEach((c,idx)=>c.classList.toggle("active", idx<i)); sendRating(i); };
+    stars.appendChild(b); }
+  $messages.appendChild(stars); $messages.scrollTop = $messages.scrollHeight;
+}
+function downloadTranscript(){
+  const rows = [...$messages.querySelectorAll(".msg-row")];
+  const lines = rows.map(r => (r.classList.contains("user") ? (userName||"You") : businessConfig.business_name) + ": " + (r.querySelector(".msg")?.textContent || ""));
+  const blob = new Blob([lines.join("\n")], {type:"text/plain"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href=url; a.download="support-chat-transcript.txt"; a.click();
+  URL.revokeObjectURL(url);
+}
+function runSearch(term){
+  document.querySelectorAll("#musfira-messages .msg-row .msg").forEach(el => {
+    const original = el.dataset.original || el.textContent;
+    el.dataset.original = original;
+    if (!term) { el.textContent = original; return; }
+    const idx = original.toLowerCase().indexOf(term.toLowerCase());
+    if (idx === -1) { el.textContent = original; return; }
+    el.innerHTML = original.slice(0,idx) + "<mark>" + original.slice(idx, idx+term.length) + "</mark>" + original.slice(idx+term.length);
+  });
+}
+$send.addEventListener("click", sendMessage);
+$input.addEventListener("keydown", e => { if (e.key === "Enter") sendMessage(); });
+$input.addEventListener("input", () => { $charCount.textContent = $input.value.length + " / 500"; });
+$human.addEventListener("click", talkToHuman);
+$menuToggle.addEventListener("click", () => { $menuDropdown.style.display = $menuDropdown.style.display==="block"?"none":"block"; });
+document.getElementById("menu-transcript").addEventListener("click", () => { downloadTranscript(); $menuDropdown.style.display="none"; });
+document.getElementById("menu-restart").addEventListener("click", () => { $messages.innerHTML=""; awaitingName = !userName; greetUser(); $menuDropdown.style.display="none"; });
+document.getElementById("menu-sound").addEventListener("click", () => { soundOn = !soundOn; localStorage.setItem(SOUND_KEY, soundOn?"on":"off"); $menuDropdown.style.display="none"; });
+document.getElementById("menu-features").addEventListener("click", () => { $featuresModal.style.display="flex"; $menuDropdown.style.display="none"; });
+document.getElementById("close-features").addEventListener("click", () => { $featuresModal.style.display="none"; });
+$searchToggle.addEventListener("click", () => { $searchBar.style.display = $searchBar.style.display==="block"?"none":"block"; if($searchBar.style.display==="block") $searchInput.focus(); else runSearch(""); });
+$searchInput.addEventListener("input", () => runSearch($searchInput.value));
+$themeToggle.addEventListener("click", () => {
+  document.body.classList.toggle("light-mode");
+  const isLight = document.body.classList.contains("light-mode");
+  localStorage.setItem(THEME_KEY, isLight?"light":"dark");
+  $themeToggle.textContent = isLight ? "☀️" : "🌙";
+});
+function greetUser(){
+  if (!userName) { addMessage("bot", "Hi! I'm here to help. Before we start, what's your name?", {noFeedback:true}); awaitingName = true; }
+  else { addMessage("bot", "Welcome back, " + userName + "! " + businessConfig.welcome_message, {noFeedback:true});
+    addQuickReplies(["What services do you offer?", "Pricing?", "Do you have a free trial?", "Talk to a human"]); }
+}
+
+/* ==========================================================================
+   SETTINGS (only reachable when not embedded)
+   ========================================================================== */
+if (!isEmbedded) {
+  const $provider = document.getElementById("provider");
+  const $groqKey = document.getElementById("groq_key");
+  const $geminiKey = document.getElementById("gemini_key");
+  const $testBtn = document.getElementById("test-key-btn");
+  const $testResult = document.getElementById("test-result");
+  const $keyLiveStatus = document.getElementById("key-live-status");
+
+  window.refreshProviderBlocks = function(){
+    const p = $provider.value;
+    document.getElementById("block-groq").classList.toggle("active", p === "groq");
+    document.getElementById("block-gemini").classList.toggle("active", p === "gemini");
+  };
+  $provider.addEventListener("change", () => { ephemeralKey.provider = $provider.value; refreshProviderBlocks(); updateKeyLiveStatus(); });
+
+  function currentKeyInput(){ return $provider.value === "gemini" ? $geminiKey : $groqKey; }
+  function updateKeyLiveStatus(){
+    ephemeralKey.key = currentKeyInput().value.trim();
+    $keyLiveStatus.textContent = ephemeralKey.key ? "🟢 Active for this tab's chat — will be forgotten on refresh." : "";
+  }
+  $groqKey.addEventListener("input", updateKeyLiveStatus);
+  $geminiKey.addEventListener("input", updateKeyLiveStatus);
+
+  $testBtn.addEventListener("click", async () => {
+    const provider = $provider.value;
+    const key = currentKeyInput().value.trim();
+    if (!key) { $testResult.className = "inline-status fail"; $testResult.textContent = "Type a key above first."; return; }
+    $testBtn.disabled = true; $testResult.className = ""; $testResult.style.display = "none"; $testBtn.textContent = "Testing...";
+    try {
+      const res = await fetch("/api/test-key", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ provider, api_key: key }) });
+      const data = await res.json();
+      if (data.ok) { $testResult.className = "inline-status ok"; $testResult.textContent = "✅ Key works! Sample reply: \"" + (data.sample_reply||"") + "\""; }
+      else { $testResult.className = "inline-status fail"; $testResult.textContent = "❌ " + (data.error || "Key test failed."); }
+    } catch (e) { $testResult.className = "inline-status fail"; $testResult.textContent = "❌ Could not reach the server."; }
+    $testBtn.disabled = false; $testBtn.textContent = "🔍 Test this key right now";
+  });
+
+  document.getElementById("gen-btn").addEventListener("click", () => {
+    document.getElementById("admin_key").value = Math.random().toString(36).slice(2,10) + Math.random().toString(36).slice(2,6);
+  });
+
+  function renderEmbedCode(){
+    document.getElementById("embed-box").textContent = `<script src="${window.location.origin}/widget.js"><\/script>`;
+  }
+  window.renderEmbedCode = renderEmbedCode;
+  document.getElementById("copy-embed-btn").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(document.getElementById("embed-box").textContent);
+      const btn = document.getElementById("copy-embed-btn"); btn.textContent = "✅ Copied!";
+      setTimeout(() => { btn.textContent = "📋 Copy embed code"; }, 1500);
+    } catch(e){}
+  });
+
+  document.getElementById("save-settings-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("save-settings-btn");
+    const status = document.getElementById("settings-status");
+    btn.disabled = true; status.className = ""; status.style.display = "none";
+    try {
+      const res = await fetch("/api/settings", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({
+          provider: $provider.value,
+          admin_key: document.getElementById("admin_key").value.trim(),
+          business_name: document.getElementById("business_name").value.trim(),
+          whatsapp: document.getElementById("whatsapp").value.trim(),
+          email: document.getElementById("email").value.trim(),
+          accent_color: document.getElementById("accent_color").value,
+          welcome_message: document.getElementById("welcome_message").value.trim(),
+        })
+      });
+      const data = await res.json();
+      if (data.ok) { status.className = "inline-status ok"; status.textContent = "Saved."; loadBusinessConfig(); }
+      else { status.className = "inline-status fail"; status.textContent = data.error || "Something went wrong."; }
+    } catch (e) { status.className = "inline-status fail"; status.textContent = "Could not reach the server."; }
+    btn.disabled = false;
+  });
+
+  /* ========================== DASHBOARD ========================== */
+  const $dashLockScreen = document.getElementById("dashboard-lock");
+  const $dashContent = document.getElementById("dashboard-content");
+  const $dashKeyInput = document.getElementById("dash-key-input");
+  const $dashError = document.getElementById("dash-error");
+
+  function esc(s){ const d=document.createElement("div"); d.textContent = s||""; return d.innerHTML; }
+  async function apiGet(path, key){
+    const res = await fetch(path, { headers: { "X-Admin-Key": key } });
+    if (res.status === 401) throw new Error("unauthorized");
+    return res.json();
+  }
+  async function apiSend(path, key, method, body){
+    const res = await fetch(path, { method, headers: { "X-Admin-Key": key, "Content-Type":"application/json" }, body: body ? JSON.stringify(body) : undefined });
+    return res.json();
+  }
+  function renderStats(s){
+    const cards = [["Conversations",s.total_sessions],["Messages",s.total_messages],["Open Tickets",s.open_tickets],
+      ["Total Tickets",s.total_tickets],["Avg Rating",s.avg_rating+" / 5"],["FAQ Hits",s.faq_hits],
+      ["AI Calls",s.llm_calls],["👍",s.feedback_up],["👎",s.feedback_down]];
+    document.getElementById("stats-grid").innerHTML = cards.map(([l,v])=>`<div class="stat-card"><div class="label">${l}</div><div class="value">${v}</div></div>`).join("");
+  }
+  function renderTickets(tickets, key){
+    document.getElementById("tickets-body").innerHTML = tickets.map(t => `
+      <tr><td>${esc(t.ticket_code)}</td><td>${esc(t.reason)}</td><td>${esc((t.user_text||"").slice(0,40))}</td>
+      <td><span class="status-badge ${t.status}">${t.status}</span></td>
+      <td>${t.status==="open" ? `<button class="mini-btn" data-id="${t.id}">Resolve</button>` : ""}</td></tr>
+    `).join("") || `<tr><td colspan="5" style="color:var(--muted)">No open tickets 🎉</td></tr>`;
+    document.querySelectorAll("#tickets-body .mini-btn").forEach(btn => btn.addEventListener("click", async () => {
+      await apiSend(`/api/admin/tickets/${btn.dataset.id}/resolve`, dashboardKey, "POST"); loadDashboard();
+    }));
+  }
+  function renderFaqs(faqs){
+    document.getElementById("faqs-body").innerHTML = faqs.map(f => `
+      <tr><td>${esc(f.keywords)}</td><td>${esc(f.answer)}</td><td><button class="mini-btn danger" data-id="${f.id}">Delete</button></td></tr>
+    `).join("") || `<tr><td colspan="3" style="color:var(--muted)">No FAQs yet.</td></tr>`;
+    document.querySelectorAll("#faqs-body .danger").forEach(btn => btn.addEventListener("click", async () => {
+      await apiSend(`/api/admin/faqs/${btn.dataset.id}`, dashboardKey, "DELETE"); loadDashboard();
+    }));
+  }
+  function renderErrors(errors){
+    document.getElementById("errors-body").innerHTML = errors.map(e => `
+      <tr><td>${new Date(e.created_at).toLocaleString()}</td><td>${esc(e.context)}</td><td style="max-width:300px;">${esc(e.error_text)}</td></tr>
+    `).join("") || `<tr><td colspan="3" style="color:var(--muted)">No errors logged 🎉</td></tr>`;
+  }
+  async function loadDashboard(){
+    try {
+      const [stats, tickets, faqs, errors] = await Promise.all([
+        apiGet("/api/admin/stats", dashboardKey), apiGet("/api/admin/tickets?status=open", dashboardKey),
+        apiGet("/api/admin/faqs", dashboardKey), apiGet("/api/admin/errors", dashboardKey),
+      ]);
+      renderStats(stats); renderTickets(tickets); renderFaqs(faqs); renderErrors(errors);
+      $dashLockScreen.style.display = "none"; $dashContent.style.display = "block";
+      document.getElementById("add-faq-btn").onclick = async () => {
+        const keywords = document.getElementById("new-faq-keywords").value.trim();
+        const answer = document.getElementById("new-faq-answer").value.trim();
+        if (!keywords || !answer) return;
+        await apiSend("/api/admin/faqs", dashboardKey, "POST", { keywords, answer });
+        document.getElementById("new-faq-keywords").value = ""; document.getElementById("new-faq-answer").value = "";
+        loadDashboard();
+      };
+    } catch (e) {
+      $dashError.className = "inline-status fail"; $dashError.textContent = "Wrong password, or backend not reachable.";
+    }
+  }
+  document.getElementById("dash-unlock-btn").addEventListener("click", () => { dashboardKey = $dashKeyInput.value.trim(); loadDashboard(); });
+  $dashKeyInput.addEventListener("keydown", e => { if (e.key === "Enter") { dashboardKey = $dashKeyInput.value.trim(); loadDashboard(); } });
+}
+
+loadBusinessConfig().then(greetUser);
+</script>
+</body>
+</html>
