@@ -1,8 +1,16 @@
 # MUSFIRA AI Support — Backend
 
+**[👀 Live Preview](https://musman550.github.io/musfira-ai-support-backend/)** — see the chat UI live, no install needed
+**[⬇ Download ZIP](https://github.com/musman550/musfira-ai-support-backend/archive/refs/heads/main.zip)** — the full self-hosted bot, free
+
 Real Python (Flask) backend for the MUSFIRA AI Support bot: chat API,
 ticketing, feedback, ratings, an inline admin dashboard, and a live
 key-test tool — free, running on your own Groq or Gemini key.
+
+The live preview above is a static, backend-free demo (GitHub Pages) so it's
+always online with nothing that can go down — it shows the exact same chat
+experience, just with canned replies instead of a live AI connection. The
+full version you download connects to your own free Groq/Gemini key.
 
 **Everything — chat, settings, dashboard — lives on ONE page.** There is
 no separate `/setup` or `/admin` window; they're just tabs at the top of
