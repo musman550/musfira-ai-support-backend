@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MUSFIRA AI Support — Live Preview</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#11161f; --panel2:#161d29; --border:#232b3a;
+    --accent:#6c5ce7; --accent2:#00d9c0; --text:#e8ecf3; --muted:#8a94a6;
+    --outer:#05070b;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%; margin:0; overflow:hidden; font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--outer); color:var(--text);}
+  #shell{height:100dvh; width:100%; display:flex; align-items:center; justify-content:center; padding:0;
+    background:
+      radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 45%),
+      radial-gradient(circle at 80% 80%, color-mix(in srgb, var(--accent2) 10%, transparent), transparent 45%),
+      var(--outer);}
+  #app{height:100%; width:100%; display:flex; flex-direction:column; background:var(--panel);
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);}
+  @media (min-width:700px){
+    #shell{padding:32px;}
+    #app{height:min(760px, 100%); max-width:440px; border-radius:22px; overflow:hidden;
+      box-shadow:0 30px 80px rgba(0,0,0,0.45), 0 0 0 1px var(--border);}
+  }
+  #header{background:linear-gradient(120deg,var(--accent),var(--accent2)); padding:14px 16px;
+    display:flex; align-items:center; justify-content:space-between; flex-shrink:0;}
+  #header .left{display:flex; align-items:center; gap:10px; min-width:0;}
+  #header .avatar{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,0.24);
+    display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;flex-shrink:0;}
+  #header .title{font-weight:700;font-size:14.5px;color:#fff;}
+  #header .status{font-size:11px;color:rgba(255,255,255,0.92);display:flex;align-items:center;gap:5px;}
+  #header .dot{width:7px;height:7px;border-radius:50%;}
+  #header .dot.online{background:#3cff9d;box-shadow:0 0 6px #3cff9d;}
+  #header .dot.away{background:#ffcc66;box-shadow:0 0 6px #ffcc66;}
+  #header a.repo-link{color:rgba(255,255,255,0.9); font-size:11px; text-decoration:none; border:1px solid rgba(255,255,255,0.4); padding:5px 10px; border-radius:16px; flex-shrink:0;}
+  #header a.repo-link:hover{background:rgba(255,255,255,0.15);}
+
+  #messages{flex:1; min-height:0; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:2px; background:var(--bg); scrollbar-width:none;}
+  #messages::-webkit-scrollbar{display:none;}
+  .row{display:flex; align-items:flex-end; gap:8px; margin-bottom:10px; max-width:88%; animation:rise .25s ease-out;}
+  @keyframes rise{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+  .row.user{align-self:flex-end; flex-direction:row-reverse;}
+  .row.bot{align-self:flex-start;}
+  .av{width:22px;height:22px;border-radius:50%;background:linear-gradient(120deg,var(--accent),var(--accent2));
+    flex-shrink:0; display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;}
+  .col{display:flex; flex-direction:column; min-width:0;}
+  .row.user .col{align-items:flex-end;}
+  .bubble{padding:10px 14px; border-radius:16px; font-size:13.5px; line-height:1.45; white-space:pre-wrap; word-wrap:break-word;}
+  .row.bot .bubble{background:var(--panel2); border:1px solid var(--border); border-bottom-left-radius:4px;}
+  .row.user .bubble{background:linear-gradient(120deg,var(--accent),color-mix(in srgb, var(--accent) 70%, var(--accent2))); color:#fff; border-bottom-right-radius:4px;}
+  .meta{font-size:10px; color:var(--muted); margin-top:3px; padding:0 2px;}
+  .feedback{display:flex; gap:4px; margin-top:3px; padding:0 2px;}
+  .feedback button{background:none;border:none;cursor:pointer;font-size:11px;opacity:0.5;color:var(--muted);padding:1px 3px;}
+  .feedback button.active{opacity:1; color:var(--accent2);}
+  .quick{display:flex; flex-wrap:wrap; gap:6px; align-self:flex-start; max-width:96%; margin:0 0 12px 30px;}
+  .quick button{background:var(--panel2); border:1px solid var(--accent); color:var(--accent2); padding:6px 12px; border-radius:20px; font-size:11.5px; cursor:pointer;}
+  .quick button:hover{background:var(--accent); color:#fff;}
+  #typing{display:none; align-self:flex-start; padding:10px 14px; background:var(--panel2); border:1px solid var(--border); border-radius:16px; margin:0 0 10px 30px;}
+  #typing span{width:6px;height:6px;background:var(--muted);border-radius:50%;display:inline-block;margin-right:3px;animation:blink 1.2s infinite;}
+  #typing span:nth-child(2){animation-delay:.2s;} #typing span:nth-child(3){animation-delay:.4s;}
+  @keyframes blink{0%,80%,100%{opacity:.3;}40%{opacity:1;}}
+
+  #footer{border-top:1px solid var(--border); padding:10px; display:flex; flex-direction:column; gap:4px; background:var(--panel); flex-shrink:0;}
+  #footer-row{display:flex; gap:8px; align-items:center;}
+  #input{flex:1; background:var(--panel2); border:1px solid var(--border); border-radius:24px; padding:10px 16px; color:var(--text); font-size:13.5px; outline:none; min-width:0;}
+  #input:focus{border-color:var(--accent);}
+  #send, #human{background:var(--accent); border:none; color:#fff; width:40px;height:40px; border-radius:50%; cursor:pointer; display:flex;align-items:center;justify-content:center; flex-shrink:0;}
+  #send:disabled{opacity:.5; cursor:not-allowed;}
+  #human{background:var(--panel2);border:1px solid var(--border);color:var(--accent2);}
+  .rating{display:flex; gap:4px; align-self:center; margin:6px 0;}
+  .rating button{background:none;border:none;font-size:19px;cursor:pointer;opacity:.4;}
+  .rating button.active{opacity:1;}
+  #preview-note{text-align:center; font-size:10px; padding-top:4px; color:var(--muted);}
+  #preview-note a{color:var(--accent2); text-decoration:none;}
+  @media (max-width:360px){ .bubble{font-size:12.5px;} #header .title{font-size:13px;} }
+</style>
+</head>
+<body>
+<div id="shell">
+  <div id="app">
+    <div id="header">
+      <div class="left">
+        <div class="avatar">M</div>
+        <div>
+          <div class="title">MUSFIRA AI Support</div>
+          <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">Checking...</span></div>
+        </div>
+      </div>
+      <a class="repo-link" href="https://github.com/musman550/musfira-ai-support-backend" target="_blank" rel="noopener">⭐ Get this bot</a>
+    </div>
+
+    <div id="messages"></div>
+
+    <div id="footer">
+      <div id="footer-row">
+        <button id="human" title="Talk to a human">👤</button>
+        <input id="input" type="text" placeholder="Type your message..." autocomplete="off" maxlength="300">
+        <button id="send" title="Send">➤</button>
+      </div>
+      <div id="preview-note">Live preview — <a href="https://github.com/musman550/musfira-ai-support-backend" target="_blank" rel="noopener">download the full self-hosted version free</a></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   This is a STATIC, backend-free preview: everything here runs
+   entirely in this browser tab. No network calls, no server, so
+   there's nothing here that can "go down" or error out. The real
+   product (which connects to Groq/Gemini, has Settings and an
+   admin Dashboard) is the Flask app in this same GitHub repo.
+   ============================================================ */
+const FAQ = [
+  { k: ["price","cost","paisa","kitna"], a: "Our automation packages are custom-priced based on scope. Want exact pricing from a human?" },
+  { k: ["free trial","trial"], a: "Yes — we offer a free trial run on a small automation task before you commit to a full package." },
+  { k: ["onboard","how fast","turnaround"], a: "Most bots can be built and deployed within a few days once requirements are locked in." },
+  { k: ["support hours","business hours","timing"], a: "Our team is online 9 AM - 11 PM (Pakistan time). Outside that, messages are answered as soon as we're back." },
+  { k: ["custom bot","custom automation"], a: "Absolutely — we build fully custom bots (chat, voice, booking, or workflow automation) tailored to your business." },
+  { k: ["service","offer"], a: "We build AI chatbots, AI calling agents, booking bots, and support bots like this one — all self-hosted and free to run on your own key." },
+];
+const FALLBACK = "Thanks for reaching out! I can answer common questions right away, and for anything else I'll connect you with our team — try \"Talk to a human\" below, or ask me about our services, pricing, or free trial.";
+
+const $messages = document.getElementById("messages");
+const $input = document.getElementById("input");
+const $send = document.getElementById("send");
+const $human = document.getElementById("human");
+const $typing = (() => { const el = document.createElement("div"); el.id = "typing"; el.innerHTML = "<span></span><span></span><span></span>"; return el; })();
+
+function updateStatus(){
+  const hour = new Date().getHours();
+  const online = hour >= 9 && hour < 23;
+  document.getElementById("statusDot").className = "dot " + (online ? "online" : "away");
+  document.getElementById("statusText").textContent = online ? "Online now" : "Away — we'll reply soon";
+}
+updateStatus(); setInterval(updateStatus, 5*60*1000);
+
+let awaitingName = true;
+let userName = null;
+
+function addMessage(role, text, opts = {}){
+  const row = document.createElement("div"); row.className = "row " + role;
+  if (role === "bot") { const av = document.createElement("div"); av.className = "av"; av.textContent = "M"; row.appendChild(av); }
+  const col = document.createElement("div"); col.className = "col";
+  const bubble = document.createElement("div"); bubble.className = "bubble"; bubble.textContent = text; col.appendChild(bubble);
+  const meta = document.createElement("div"); meta.className = "meta";
+  meta.textContent = new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) + (role === "user" ? " ✓✓" : "");
+  col.appendChild(meta);
+  if (role === "bot" && !opts.noFeedback) {
+    const fb = document.createElement("div"); fb.className = "feedback";
+    const up = document.createElement("button"); up.textContent = "👍";
+    const down = document.createElement("button"); down.textContent = "👎";
+    up.onclick = () => { up.classList.add("active"); down.classList.remove("active"); };
+    down.onclick = () => { down.classList.add("active"); up.classList.remove("active"); };
+    fb.appendChild(up); fb.appendChild(down); col.appendChild(fb);
+  }
+  row.appendChild(col);
+  $messages.appendChild(row); $messages.scrollTop = $messages.scrollHeight;
+}
+function addQuick(options){
+  const wrap = document.createElement("div"); wrap.className = "quick";
+  options.forEach(opt => { const b = document.createElement("button"); b.textContent = opt; b.onclick = () => { $input.value = opt; sendMessage(); }; wrap.appendChild(b); });
+  $messages.appendChild(wrap); $messages.scrollTop = $messages.scrollHeight;
+}
+function showTyping(show){
+  if (show) { $messages.appendChild($typing); $typing.style.display = "block"; $messages.scrollTop = $messages.scrollHeight; }
+  else { $typing.style.display = "none"; if ($typing.parentNode) $typing.parentNode.removeChild($typing); }
+}
+function demoReply(text){
+  const lc = text.toLowerCase();
+  for (const item of FAQ) if (item.k.some(kw => lc.includes(kw))) return item.a;
+  return FALLBACK;
+}
+function suggestFollowUps(text, reply){
+  const lc = (text + " " + reply).toLowerCase();
+  if (lc.includes("price") || lc.includes("cost")) return ["Do you have a free trial?", "Talk to a human"];
+  if (lc.includes("service") || lc.includes("offer")) return ["How fast is onboarding?", "Pricing?"];
+  return ["Talk to a human", "What services do you offer?"];
+}
+function typingDelay(text){ return 350 + Math.min(text.length * 15, 1300); }
+
+async function sendMessage(){
+  const text = $input.value.trim();
+  if (!text) return;
+  $input.value = ""; $send.disabled = true;
+
+  if (awaitingName) {
+    awaitingName = false;
+    const guess = text.replace(/[^a-zA-Z\s]/g, "").trim().split(" ")[0];
+    if (guess && guess.length > 1) userName = guess;
+    addMessage("user", text);
+    showTyping(true); await new Promise(r => setTimeout(r, 500)); showTyping(false);
+    addMessage("bot", "Nice to meet you" + (userName ? ", " + userName : "") + "! How can I help today?", {noFeedback:true});
+    addQuick(["What services do you offer?", "Pricing?", "Talk to a human"]);
+    $send.disabled = false; return;
+  }
+
+  addMessage("user", text);
+  showTyping(true);
+  const reply = demoReply(text);
+  await new Promise(r => setTimeout(r, typingDelay(reply)));
+  showTyping(false);
+  addMessage("bot", reply);
+  addQuick(suggestFollowUps(text, reply));
+  $send.disabled = false;
+}
+
+$human.addEventListener("click", () => {
+  const sys = document.createElement("div"); sys.style.cssText = "align-self:center;font-size:10.5px;color:var(--muted);text-align:center;margin:4px 0;";
+  sys.textContent = "This preview doesn't connect to a real team — download the bot below to wire up your own WhatsApp/email.";
+  $messages.appendChild(sys);
+  const stars = document.createElement("div"); stars.className = "rating";
+  for (let i = 1; i <= 5; i++){ const b = document.createElement("button"); b.textContent = "★"; b.onclick = () => [...stars.children].forEach((c, idx) => c.classList.toggle("active", idx < i)); stars.appendChild(b); }
+  const label = document.createElement("div"); label.style.cssText = "align-self:center;font-size:10.5px;color:var(--muted);"; label.textContent = "(Sample rating — not recorded anywhere)";
+  $messages.appendChild(stars); $messages.appendChild(label);
+  $messages.scrollTop = $messages.scrollHeight;
+});
+
+$send.addEventListener("click", sendMessage);
+$input.addEventListener("keydown", e => { if (e.key === "Enter") sendMessage(); });
+
+addMessage("bot", "Hi! I'm here to help. Before we start, what's your name?", {noFeedback:true});
+</script>
+</body>
+</html>
