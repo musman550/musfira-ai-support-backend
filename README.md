@@ -144,3 +144,15 @@ conversation/ticket history may not persist long-term there. For
 production-grade persistence, swap `get_db()` in `bot_app.py` for a free
 managed DB (Turso — SQLite-compatible, free tier — or Supabase's free
 Postgres tier). Flagging this now rather than letting it surprise anyone.
+
+<!-- BRANDING:START -->
+
+---
+
+🌐 Website: [musfiraai.com](https://musfiraai.com/)
+
+* ▶️ YouTube: [Automate With Musfira AI](https://www.youtube.com/@automatewithmusfiraai)
+* 💼 LinkedIn: [Musfira AI](https://www.linkedin.com/in/musfira-ai-b3218b39b)
+* 📸 Instagram: [@musma_n55](https://instagram.com/musma_n55)
+
+<!-- BRANDING:END -->
